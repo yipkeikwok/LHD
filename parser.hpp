@@ -39,6 +39,7 @@ struct Request {
   int32_t appId;
   int32_t type;
   int32_t keySize;
+	// size of value (unit: byte)
   int64_t valueSize;
   int64_t id;
   int8_t  miss;
