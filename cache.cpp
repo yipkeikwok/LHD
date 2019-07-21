@@ -11,6 +11,9 @@
 using namespace std;
 using namespace parser;
 
+// defined in cache.hpp
+//	namespace cache
+//	struct Cache
 cache::Cache* _cache;
 
 const int64_t DEFAULT_TOTAL_ACCESSES = 512 * 1024 * 1024;
@@ -27,7 +30,14 @@ bool simulateCache(const Request& req) {
     return true;
   }
 
+	// datatype of _cache is cache::Cache* 
+	// In cache.hpp: void access(const parser::Request& req) {...} 
   _cache->access(req);
+	// cache::struct Cache{uint64_t accesses;} 
+	//	number of requests to the cache 
+	// parser::FAST_FORWARD
+	//	purpose not explained in code 
+	//	set to 0 in constants.hpp 
   return _cache->accesses < TOTAL_ACCESSES - parser::FAST_FORWARD;
 }
 
@@ -56,6 +66,7 @@ int main(int argc, char* argv[]) {
 
   int capacity = cfg.read<int>("cache.capacity");
   TOTAL_ACCESSES = cfg.read<int>("trace.totalAccesses", DEFAULT_TOTAL_ACCESSES);
+	// namespace= cache, constructor= Cache()
   _cache = new cache::Cache();
   _cache->availableCapacity = (uint64_t)capacity * 1024 * 1024;
   _cache->repl = repl::Policy::create(_cache, root);
@@ -87,7 +98,13 @@ int main(int argc, char* argv[]) {
 
   time_t start = time(NULL);
 
+	// BinaryParser(string filename, bool progressBar)
   BinaryParser parser(trace.c_str(), false);
+	// void go(bool (*visit)(const Request& req)) {...} 
+	// bool simulateCache(const Request& req) {...} 
+	//	(1) send each request to cache by invoking 
+	//		cache::Cache->access(Request&) 
+	//	(2) terminate simulator when TOTAL_ACCESSES reached 
   parser.go(simulateCache);
 
   time_t end = time(NULL);
