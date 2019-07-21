@@ -38,9 +38,15 @@ class LHD : public virtual Policy {
 
     // info we track about each object
     struct Tag {
+	// the un-coarsened time of the beginning of the block (single object's 
+	//	lifetime) 
         age_t timestamp;
         age_t lastHitAge;
         age_t lastLastHitAge;
+	// not actual appId
+	// LHD::update(candidate_t id, const parser::Request& req) {
+	//	tag->app = req.appId % APP_CLASSES;
+	// } 
         uint32_t app;
         
         candidate_t id;
@@ -99,8 +105,10 @@ class LHD : public virtual Policy {
     cache::Cache *cache;
 
     // object metadata; indices maps object id -> metadata
+	// tags stores all cached objects 
     std::vector<Tag> tags;
     std::vector<Class> classes;
+	// stores the index of each candidate_t struct in std::vector<Tag> tags 
     std::unordered_map<candidate_t, uint64_t> indices;
 
     // time is measured in # of requests
@@ -126,6 +134,12 @@ class LHD : public virtual Policy {
     // see ADMISSIONS above
     std::vector<candidate_t> recentlyAdmitted;
     int recentlyAdmittedHead = 0;
+	// used in LHD::rank() to identify newly admitted objects that should be 
+	//	considered for upcoming evictions. In LHD::update(), the struct 
+	//	candidate_t objects of 
+	//	these objects are stored in recentlyAdmitted[]. 
+	//	We do not want them to stay in the cache for too long because 
+	//	their low densities (i.e., below ewmaVictimHitDensity) 
     rank_t ewmaVictimHitDensity = 0;
 
     int64_t explorerBudget = 0;
@@ -145,13 +159,29 @@ class LHD : public virtual Policy {
 
     inline uint32_t getClassId(const Tag& tag) const {
         uint32_t hitAgeId = hitAgeClass(tag.lastHitAge + tag.lastLastHitAge);
+	// Note: tag.app <- req.appId % APP_CLASSES 
         return tag.app * HIT_AGE_CLASSES + hitAgeId;
     }
     
+/**
+namespace cache {
+	class LHD {
+		struct Class {
+			std::vector<rank_t> hits;
+			std::vector<rank_t> evictions;
+			rank_t totalHits = 0;
+			rank_t totalEvictions = 0;
+
+			std::vector<rank_t> hitDensities;
+		};
+	}
+}
+*/
     inline Class& getClass(const Tag& tag) {
         return classes[getClassId(tag)];
     }
 
+	// return the coarsened age 
     inline age_t getAge(Tag tag) {
         timestamp_t age = (timestamp - (timestamp_t)tag.timestamp) >> ageCoarseningShift;
 
@@ -164,8 +194,10 @@ class LHD : public virtual Policy {
     }
 
     inline rank_t getHitDensity(const Tag& tag) {
+	// age_t getAge(Tag tag) returns the coarsened age 
         auto age = getAge(tag);
         if (age == MAX_AGE-1) { return std::numeric_limits<rank_t>::lowest(); }
+	// Class& getClass(const Tag& tag) {} 
         auto& cl = getClass(tag);
         rank_t density = cl.hitDensities[age] / tag.size;
         if (tag.explorer) { density += 1.; }

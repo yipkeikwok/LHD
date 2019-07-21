@@ -20,6 +20,8 @@ namespace cache {
 // is the number of evictions, _not_ the number of misses that lead to
 // an eviction.
 struct Cache {
+	// repl set up in cache.cpp::main()
+	//	_cache->repl = repl::Policy::create(_cache, root);
   repl::Policy* repl;
   uint64_t hits;
   uint64_t misses;
@@ -31,9 +33,14 @@ struct Cache {
   uint64_t cumulativeAllocatedSpace;
   uint64_t cumulativeFilledSpace;
   uint64_t cumulativeEvictedSpace;
+	// number of requests to the cache 
   uint64_t accesses;
   uint64_t availableCapacity;
+	// size of objects stored in the cache 
   uint64_t consumedCapacity;
+	// candidate_t{int appId; int64_t id;} 
+	//	int64_t id is the object ID 
+	// sizeMap stores key-value pairs. Value is size in uint32_t 
   std::unordered_map<repl::candidate_t, uint32_t> sizeMap;
   repl::CandidateMap<bool> historyAccess;
 
@@ -71,10 +78,22 @@ struct Cache {
     assert(req.size() > 0);
     if (req.type != parser::GET) { return; }
 
-    auto id = repl::candidate_t::make(req);
+	// namespace repl 
+	// repl::struct candidate_t{} defined in candidate.hpp 
+	//	field: int appId, int64_t id
+	// In candidate.hpp, 
+	// struct candidate_t{ 
+	//	static candidate_t make(const parser::Request& req) {...}
+	// }
+	// make(req) returns an object of struct candidate_t 
+    auto id = repl::candidate_t::make(req); // datatype(id) is candidate_t  
+	// struct Cache { std::unordered_map<repl::candidate_t, uint32_t> sizeMap; }
     auto itr = sizeMap.find(id);
     bool hit = (itr != sizeMap.end());
 
+	// struct Cache{repl::CandidateMap<bool> historyAccess; } 
+	//	In candidate.hpp, ...
+	// 	class CandidateMap : public std::unordered_map<candidate_t, T> {} 
     if (!historyAccess[id]) {
       // first time requests are considered as compulsory misses
       ++compulsoryMisses;
@@ -112,6 +131,14 @@ struct Cache {
 
     while (consumedCapacity + requestSize > availableCapacity) {
       // need to evict stuff!
+	// repl::Policy* repl; 
+	//	class Policy {
+	//		virtual candidate_t rank(const parser::Request& req) = 0;
+	//	}
+	// When LHD in use, rank() implemented in 
+	//	class LHD : public virtual Policy {
+	//		candidate_t rank(const parser::Request& req);
+	//	}
       repl::candidate_t victim = repl->rank(req);
       auto victimItr = sizeMap.find(victim);
       if (victimItr == sizeMap.end()) {

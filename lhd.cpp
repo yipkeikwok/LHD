@@ -5,6 +5,12 @@
 
 namespace repl {
 
+// invoked by 
+//	repl::Policy* repl::Policy::create(cache::Cache* cache, 
+//		const libconfig::Setting &settings)
+//	in repl.cpp 
+//	_associativity is from cache={assoc} in example.cfg 
+//	_admissions is from cache={admissionSamples} in example.cfg 
 LHD::LHD(int _associativity, int _admissions, cache::Cache* _cache)
     : ASSOCIATIVITY(_associativity)
     , ADMISSIONS(_admissions)
@@ -12,10 +18,16 @@ LHD::LHD(int _associativity, int _admissions, cache::Cache* _cache)
     , recentlyAdmitted(ADMISSIONS, INVALID_CANDIDATE) {
     nextReconfiguration = ACCS_PER_RECONFIGURATION;
     explorerBudget = _cache->availableCapacity * EXPLORER_BUDGET_FRACTION;
-    
+ 
+	// lhd.hpp:    
+	//	static constexpr uint32_t NUM_CLASSES = HIT_AGE_CLASSES 
+	//		* APP_CLASSES;   
     for (uint32_t i = 0; i < NUM_CLASSES; i++) {
         classes.push_back(Class());
         auto& cl = classes.back();
+	// lhd.hpp:    
+	//	static constexpr age_t MAX_AGE = 20000;
+	//	Note: MAX_AGE is a coarsened age 
         cl.hits.resize(MAX_AGE, 0);
         cl.evictions.resize(MAX_AGE, 0);
         cl.hitDensities.resize(MAX_AGE, 0);
@@ -30,8 +42,16 @@ LHD::LHD(int _associativity, int _admissions, cache::Cache* _cache)
     }
 }
 
+// return struct candidate_t of the eviction victim 
 candidate_t LHD::rank(const parser::Request& req) {
     uint64_t victim = -1;
+	// lhd.hpp
+	//	namespace repl {
+	//		class LHD : public virtual Policy {
+	//			private: 
+	//				typedef float rank_t; 
+	//		}
+	//	}
     rank_t victimRank = std::numeric_limits<rank_t>::max();
 
     // Sample few candidates early in the trace so that we converge
@@ -45,8 +65,24 @@ candidate_t LHD::rank(const parser::Request& req) {
         ASSOCIATIVITY : 8;
 
     for (uint32_t i = 0; i < candidates; i++) {
+	// lhd.hpp::namespace repl::class LHD 
+	//	std::vector<Tag> tags; 
+	//	struct Tag {
+	//		age_t timestamp;
+	//		age_t lastHitAge;
+	//		age_t lastLastHitAge;
+	//		uint32_t app;
+
+	//		candidate_t id;
+	//		rank_t size; // stored redundantly with cache
+	//		bool explorer;
+	//	};
+	//	typedef uint64_t age_t; 
+	//	typedef float rank_t; 
         auto idx = rand.next() % tags.size();
         auto& tag = tags[idx];
+	// lhd.hpp
+	//	inline rank_t getHitDensity(const Tag& tag) {}
         rank_t rank = getHitDensity(tag);
 
         if (rank < victimRank) {
@@ -56,7 +92,11 @@ candidate_t LHD::rank(const parser::Request& req) {
     }
 
     for (uint32_t i = 0; i < ADMISSIONS; i++) {
+	// lhd.hpp::namespace repl::class LHD::
+	//	std::unordered_map<candidate_t, uint64_t> indices;
         auto itr = indices.find(recentlyAdmitted[i]);
+	// a recently admitted may have already been evicted and, therefore, not 
+	//	in indices 
         if (itr == indices.end()) { continue; }
 
         auto idx = itr->second;
@@ -72,18 +112,24 @@ candidate_t LHD::rank(const parser::Request& req) {
 
     assert(victim != (uint64_t)-1);
 
+	// lhd.hpp::namespace repl::class LHD::
+	//	rank_t ewmaVictimHitDensity = 0;
+	//	typedef float rank_t;
     ewmaVictimHitDensity = EWMA_DECAY * ewmaVictimHitDensity + (1 - EWMA_DECAY) * victimRank;
 
     return tags[victim].id;
 }
 
+// called by namespace cache::class Cache::access() 
 void LHD::update(candidate_t id, const parser::Request& req) {
     auto itr = indices.find(id);
     bool insert = (itr == indices.end());
         
     Tag* tag;
     if (insert) {
+	// namespace cache{class Cache{std::vector<Tag> tags;}}
         tags.push_back(Tag{});
+	// back(): returns reference to the last element 
         tag = &tags.back();
         indices[id] = tags.size() - 1;
         
@@ -93,7 +139,12 @@ void LHD::update(candidate_t id, const parser::Request& req) {
     } else {
         tag = &tags[itr->second];
         assert(tag->id == id);
+	// lhd.hpp
+	//	inline age_t getAge(Tag tag) {...} 
+	//	returns coarsened age 
         auto age = getAge(*tag);
+	// lhd.hpp 
+	//	inline Class& getClass(const Tag& tag) {...} 
         auto& cl = getClass(*tag);
         cl.hits[age] += 1;
 
@@ -132,7 +183,15 @@ void LHD::update(candidate_t id, const parser::Request& req) {
     }
 }
 
+// invoked by cache.hpp
+//	cache::struct Cache{void access(const parser::Request& req) {...}} 
 void LHD::replaced(candidate_t id) {
+	// lhd.hpp 
+	// namespace repl { class LHD { 
+		// stores the index of each candidate_t struct 
+		//	in std::vector<Tag> tags
+		// std::unordered_map<candidate_t, uint64_t> indices;
+	// }	}
     auto itr = indices.find(id);
     assert(itr != indices.end());
     auto index = itr->second;
@@ -157,10 +216,15 @@ void LHD::replaced(candidate_t id) {
 }
 
 void LHD::reconfigure() {
+	// typedef float rank_t;
     rank_t totalHits = 0;
     rank_t totalEvictions = 0;
     for (auto& cl : classes) {
-        updateClass(cl);
+	// decay hits[] and evictions[] counts of each class 
+	// sum up decayed hits[] and evictions[] counts 
+	// 	cl.totalHits <- sum(cl.hits[]) 
+	// 	cl.totalEvictions <- sum(cl.evictions[]) 
+        updateClass(cl); 
         totalHits += cl.totalHits;
         totalEvictions += cl.totalEvictions;
     }
@@ -201,7 +265,11 @@ void LHD::updateClass(Class& cl) {
     }
 }
 
+// invoked by reconfigure() 
 void LHD::modelHitDensity() {
+	// ./lhd.hpp:    
+	//	std::vector<Class> classes;
+	//	number of elements = NUM_CLASSES = HIT_AGE_CLASSES*APP_CLASSES 
     for (uint32_t c = 0; c < classes.size(); c++) {
         rank_t totalEvents = classes[c].hits[MAX_AGE-1] + classes[c].evictions[MAX_AGE-1];
         rank_t totalHits = classes[c].hits[MAX_AGE-1];
@@ -210,7 +278,11 @@ void LHD::modelHitDensity() {
         // we use a small trick here to compute expectation in O(N) by
         // accumulating all values at later ages in
         // lifetimeUnconditioned.
-        
+ 
+	// How does this for-loop end? 
+	//	my guess: Since typedef uint64_t age_t, so age_t a keeps being 
+	//	decremented, it becomes MAX(uint64_t) due to overflow and breaks 
+	//	the loop condition        
         for (age_t a = MAX_AGE - 2; a < MAX_AGE; a--) {
             totalHits += classes[c].hits[a];
             

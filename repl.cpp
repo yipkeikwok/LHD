@@ -21,12 +21,15 @@ repl::Policy* repl::Policy::create(cache::Cache* cache, const libconfig::Setting
   }
 
   // ranking policies
+	// ASSOCIATIVITY: number of eviction candidate 
   int assoc = cfg.read<int>("cache.assoc");
   int admissionSamples = cfg.read<int>("cache.admissionSamples");
 
   std::cout << "Ranked associativity = " << assoc << std::endl;
 
   if (type == "LHD") {
+	// lhd.hpp 
+	// LHD(int _associativity, int _admissions, cache::Cache *cache);
     return new LHD(assoc, admissionSamples, cache);
   } else {
     std::cerr << "No valid policy" << std::endl;

@@ -21,6 +21,7 @@ using std::ifstream;
 
 typedef float float32_t;
 
+// When PartialRequest type is used, request type set to GET 
 enum {
   GET = 1,
   SET,
@@ -64,7 +65,7 @@ static constexpr Request NULL_REQUEST{0., 0, 0, 0, 0, 0, false};
 struct PartialRequest {
   int32_t appId;
   int64_t size;
-  int32_t id;
+  int32_t id; // object ID 
 } __attribute__((packed));
 
 static uint64_t file_size(const char* fname) {
@@ -75,6 +76,13 @@ static uint64_t file_size(const char* fname) {
 
 class BinaryParser {
 public:
+	// BinaryParser(string filename, bool progressBar) 
+	//	* Contructor 
+	//	* read trace file for header 
+	// class members (selected): 
+	// 	ifstream file
+	// 	uint32_t ticks 
+	// 	string header 
   BinaryParser(string filename, bool progressBar = false)
     : file(filename.c_str(), ifstream::in | ifstream::binary), ticks(0) {
 
@@ -96,10 +104,11 @@ public:
       bytesPerProgressTick = -1;
     }
 
+	// good() returns true if I/O ops are available 
     while (file.good()) {
       char c = '\0';
       file.read(&c, 1);
-      header.push_back(c);
+      header.push_back(c); // append a char to the end 
       if (c == '!') { break; }
     }
   }
@@ -124,12 +133,27 @@ public:
     while (file.good()) {
       PartialRequest pr;
       file.read((char*)&pr, sizeof(pr)); // >> r;
-      pr.size = std::max(pr.size, 1l);
+      pr.size = std::max(pr.size, 1l); // 1l is 1
       if (pr.size > MAX_REQUEST_SIZE) {
         std::cerr << "Trimming object of size: " << pr.size << std::endl;
         pr.size = MAX_REQUEST_SIZE - MEMCACHED_OVERHEAD;
         assert(pr.size > 0);
       }
+
+	/**
+	struct Request {
+		float32_t time;
+		int32_t appId;
+		int32_t type;
+		int32_t keySize;
+		int64_t valueSize;
+		int64_t id;
+		int8_t  miss;
+
+		inline int64_t size() const { 
+			return keySize + valueSize + MEMCACHED_OVERHEAD; }
+	} __attribute__((packed));
+	*/
       Request req { 0., pr.appId, GET, 0, pr.size, pr.id, false };
       tick();
       if (!visit(req)) { break; }
