@@ -38,6 +38,8 @@ struct Cache {
   uint64_t availableCapacity;
 	// size of objects stored in the cache 
   uint64_t consumedCapacity;
+	// no. of misses during warm-up 
+	uint64_t warmupMisses; 
 	// candidate_t{int appId; int64_t id;} 
 	//	int64_t id is the object ID 
 	// sizeMap stores key-value pairs. Value is size in uint32_t 
@@ -59,6 +61,7 @@ struct Cache {
     , accesses(0)
     , availableCapacity(-1)
     , consumedCapacity(0)
+	, warmupMisses(0)
     , historyAccess(false) {}
 
   uint32_t getSize(repl::candidate_t id) const {
@@ -197,7 +200,7 @@ struct Cache {
       << "Accesses: " << accesses
       << "\t(" << misc::bytes(cumulativeAllocatedSpace) << ")" << endl
       << "Hits: " << hits << " " << (100. * hits / accesses) << "%" << endl
-      << "Misses: " << misses << " " << (100. * misses / accesses) << "%" << endl
+      << "Misses: " << (misses-warmupMisses) << " " << (100. * (misses-warmupMisses) / (accesses-WARMUP_ACCESSES)) << "%" << endl
       << "Compulsory misses: " << compulsoryMisses << " " << (100. * compulsoryMisses / accesses) << "%" << endl
       << "Non-compulsory hit rate: " << (100. * hits / (accesses - compulsoryMisses)) << "%" << endl
       << "  > Fills: " << fills << " " << (100. * fills / accesses) << "%"
