@@ -103,7 +103,12 @@ struct Cache {
       historyAccess[id] = true;
     }
 
-    if (hit) { ++hits; } else { ++misses; }
+    if (hit) { ++hits; } else { 
+	    if(accesses < WARMUP_ACCESSES) {
+		    warmupMisses++;
+	    }
+	    ++misses; 
+    }
     ++accesses;
 
     // stats?
