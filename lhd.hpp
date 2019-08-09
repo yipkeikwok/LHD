@@ -83,6 +83,9 @@ class LHD : public virtual Policy {
     // a good value that has limited impact on hit ratio while quickly
     // discovering the shape of the access pattern.
     static constexpr rank_t EXPLORER_BUDGET_FRACTION = 0.01;
+	// if "explorer" space budget has not been reached, in lhd.cpp::update(), 
+	// objects are being randomly put into the "explorer" space. The 
+	// probability is 1/EXPLORE_INVERSE_PROBABILITY 
     static constexpr uint32_t EXPLORE_INVERSE_PROBABILITY = 32;
 
     // these parameters determine how aggressively to classify objects.
@@ -142,6 +145,12 @@ class LHD : public virtual Policy {
 	//	their low densities (i.e., below ewmaVictimHitDensity) 
     rank_t ewmaVictimHitDensity = 0;
 
+	// the amount of space allocated for "explorer" objects 
+	// namespace repl { 
+	//	LHD::LHD() {
+	//		explorerBudget = _cache->availableCapacity 
+	//			* EXPLORER_BUDGET_FRACTION;
+	//
     int64_t explorerBudget = 0;
     
     // METHODS /////////////////////////////

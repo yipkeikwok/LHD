@@ -21,7 +21,6 @@ using std::ifstream;
 
 typedef float float32_t;
 
-// When PartialRequest type is used, request type set to GET 
 enum {
   GET = 1,
   SET,
@@ -40,7 +39,6 @@ struct Request {
   int32_t appId;
   int32_t type;
   int32_t keySize;
-	// size of value (unit: byte)
   int64_t valueSize;
   int64_t id;
   int8_t  miss;
@@ -65,8 +63,9 @@ static constexpr Request NULL_REQUEST{0., 0, 0, 0, 0, 0, false};
 struct PartialRequest {
   int32_t appId;
   int64_t size;
-  int32_t id; // object ID 
+  int32_t id;
 } __attribute__((packed));
+
 
 static uint64_t file_size(const char* fname) {
   struct stat64 stats;
@@ -74,15 +73,152 @@ static uint64_t file_size(const char* fname) {
   return rc == 0? stats.st_size : (uint64_t)-1;
 }
 
+class CSVParser
+{	
+	string header;
+	ifstream file;
+	uint64_t fileSize;
+	uint64_t bytesPerProgressTick;
+	uint32_t ticks;
+
+public:
+	CSVParser(string filename)
+		: file(filename.c_str(), ifstream::in)
+	{
+		std::cout << "Parsing: " << filename << std::endl;
+		assert(file.good());
+		fileSize = file_size(filename.c_str());	
+		std::getline(file, header);
+	}
+
+	void go(bool (*visit)(const Request& req))
+	{
+		if (header == "appId.size.id-=iqi!")
+		{
+			goPartial(visit);
+		}
+		/*else if (header == "Time.appId.type.keySize.valueSize.id.miss-=fiiiqi?!")
+		{
+			goFull<MediumRequest>(visit);
+		}
+		else if (header == "Time.appId.type.keySize.valueSize.id.miss-=fiiiqq?!")
+		{
+			goFull<Request>(visit);
+		}*/
+		else
+		{
+			cerr << "Invalid header in trace: " << header << endl;
+			assert(false);
+		}
+	}
+
+	void goPartial(bool (*visit)(const Request& req))
+	{
+		cout << "goPartial: Trace file contains " << (fileSize / sizeof(PartialRequest)) << " requests.\n";
+		while (file.good())
+		{
+			PartialRequest pr;
+			string line = "\0";
+
+			std::getline(file, line);
+
+			if(line == "\0")
+				return;
+
+			pr.appId = std::stoi(line.substr(0, line.find(",")));
+			line.erase(0, line.find(",") + 1);
+			pr.size = std::stoll(line.substr(0, line.find(",")));
+			line.erase(0, line.find(",") + 1);
+			int64_t id = std::stoll(line.substr(0, line.find(",")));
+			pr.id = (int32_t)id;
+
+			pr.size = std::max(pr.size, 1l);
+			if (pr.size > MAX_REQUEST_SIZE)
+			{
+				std::cerr << "Trimming object of size: " << pr.size << std::endl;
+				pr.size = MAX_REQUEST_SIZE - MEMCACHED_OVERHEAD;
+				assert(pr.size > 0);
+			}
+			
+			//printf("Partial Request: %d,%ld,%d\n", pr.appId, pr.size, pr.id);
+			Request req { 0., pr.appId, GET, 0, pr.size, id, false };
+			if (!visit(req)) { break; }
+		}
+	}
+	
+	template<typename RequestType>
+	void goFull(bool (*visit)(const Request& req))
+	{
+		cout << "goFull: Trace file contains " << (fileSize / sizeof(RequestType)) << " requests (each " << sizeof(RequestType) << "B).\n";
+		RequestType r;
+		std::streampos start = file.tellg();
+		
+		while(true)
+		{
+			if (!file.good())
+			{
+				file.clear();
+				file.seekg(start);
+				assert(file.good());
+				std::cout << "Reset back to head of file" << std::endl;
+			}
+			
+			//file.read((char*)&r, sizeof(r));
+			
+			// float32_t time;
+			// int32_t appId;
+			// int32_t type;
+			// int32_t keySize;
+			// int64_t valueSize;
+			// int64_t id;
+			// int8_t  miss;
+
+			string line = "\0";
+
+			std::getline(file, line);
+			if(line == "\0")
+				return;
+
+			r.time = std::stof(line.substr(0, line.find(",")));
+			line.erase(0, line.find(",") + 1);
+			
+			r.appId = std::stoi(line.substr(0, line.find(",")));
+			line.erase(0, line.find(",") + 1);
+			
+			r.type = std::stoi(line.substr(0, line.find(",")));
+			line.erase(0, line.find(",") + 1);
+			
+			r.keySize = std::stoi(line.substr(0, line.find(",")));
+			line.erase(0, line.find(",") + 1);
+			
+			r.valueSize = std::stoll(line.substr(0, line.find(",")));
+			line.erase(0, line.find(",") + 1);
+			
+			r.id = (decltype(RequestType::id))std::stoll(line.substr(0, line.find(",")));
+			line.erase(0, line.find(",") + 1);
+			
+			r.miss = (int8_t)std::stoi(line.substr(0, line.find(",")));
+			line.erase(0, line.find(",") + 1);
+			
+			r.valueSize = std::max(r.valueSize, 1l);
+			if (r.size() > MAX_REQUEST_SIZE)
+			{
+				std::cout << "Trimming object of size: " << r.valueSize << std::endl;
+				r.valueSize = MAX_REQUEST_SIZE - r.keySize - MEMCACHED_OVERHEAD;
+				assert(r.size() > 0);
+			}
+			
+			Request req { r.time, r.appId, r.type, r.keySize, r.valueSize, r.id, r.miss };
+			
+			if (!visit(req)) { break; }
+		}
+	}
+
+
+};
+
 class BinaryParser {
 public:
-	// BinaryParser(string filename, bool progressBar) 
-	//	* Contructor 
-	//	* read trace file for header 
-	// class members (selected): 
-	// 	ifstream file
-	// 	uint32_t ticks 
-	// 	string header 
   BinaryParser(string filename, bool progressBar = false)
     : file(filename.c_str(), ifstream::in | ifstream::binary), ticks(0) {
 
@@ -104,13 +240,13 @@ public:
       bytesPerProgressTick = -1;
     }
 
-	// good() returns true if I/O ops are available 
     while (file.good()) {
       char c = '\0';
       file.read(&c, 1);
-      header.push_back(c); // append a char to the end 
+      header.push_back(c);
       if (c == '!') { break; }
     }
+		fileSize -= header.size();
   }
 
   void go(bool (*visit)(const Request& req)) {
@@ -133,27 +269,12 @@ public:
     while (file.good()) {
       PartialRequest pr;
       file.read((char*)&pr, sizeof(pr)); // >> r;
-      pr.size = std::max(pr.size, 1l); // 1l is 1
+      pr.size = std::max(pr.size, 1l);
       if (pr.size > MAX_REQUEST_SIZE) {
         std::cerr << "Trimming object of size: " << pr.size << std::endl;
         pr.size = MAX_REQUEST_SIZE - MEMCACHED_OVERHEAD;
         assert(pr.size > 0);
       }
-
-	/**
-	struct Request {
-		float32_t time;
-		int32_t appId;
-		int32_t type;
-		int32_t keySize;
-		int64_t valueSize;
-		int64_t id;
-		int8_t  miss;
-
-		inline int64_t size() const { 
-			return keySize + valueSize + MEMCACHED_OVERHEAD; }
-	} __attribute__((packed));
-	*/
       Request req { 0., pr.appId, GET, 0, pr.size, pr.id, false };
       tick();
       if (!visit(req)) { break; }
