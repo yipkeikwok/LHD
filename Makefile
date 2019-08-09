@@ -1,3 +1,4 @@
+
 # CFLAGS = -ggdb3 -std=c++14 -Wall -Werror -fPIC -mcmodel=medium
 CFLAGS = -march=native -funroll-loops -ffast-math -O3 -g -fPIC -Werror -Wall -mcmodel=medium
 
