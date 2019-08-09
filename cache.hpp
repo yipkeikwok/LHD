@@ -1,4 +1,5 @@
 #pragma once
+// #define WARMUP
 #include <iostream>
 #include <unordered_map>
 
@@ -205,7 +206,11 @@ struct Cache {
       << "Accesses: " << accesses
       << "\t(" << misc::bytes(cumulativeAllocatedSpace) << ")" << endl
       << "Hits: " << hits << " " << (100. * hits / accesses) << "%" << endl
+#ifndef	WARMUP
+      << "Misses: " << (misses) << " " << (100. * (misses) / (accesses)) << "%" << endl
+#else 
       << "Misses: " << (misses-warmupMisses) << " " << (100. * (misses-warmupMisses) / (accesses-WARMUP_ACCESSES)) << "%" << endl
+#endif
       << "Compulsory misses: " << compulsoryMisses << " " << (100. * compulsoryMisses / accesses) << "%" << endl
       << "Non-compulsory hit rate: " << (100. * hits / (accesses - compulsoryMisses)) << "%" << endl
       << "  > Fills: " << fills << " " << (100. * fills / accesses) << "%"
