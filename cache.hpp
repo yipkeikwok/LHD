@@ -1,5 +1,5 @@
 #pragma once
-// #define WARMUP
+#define WARMUP
 #include <iostream>
 #include <unordered_map>
 
@@ -159,6 +159,11 @@ struct Cache {
 
       // replacing candidate that just hit; don't free space twice
       if (victim == id) {
+        // It is possible (victim == id) because repl->rank() picks victim from 
+        // std::vector<Tag> tags, which contains the Tag struct of all, and only, 
+        // objects currently in the cache. 
+        // However, this can happen only if the access is a hit. 
+        assert(hit);
         continue;
       }
 
