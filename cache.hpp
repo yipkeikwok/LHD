@@ -1,5 +1,6 @@
 #pragma once
 #define WARMUP
+//#define LHD_LHD
 #include <iostream>
 #include <unordered_map>
 
@@ -99,6 +100,7 @@ struct Cache {
 	//	In candidate.hpp, ...
 	// 	class CandidateMap : public std::unordered_map<candidate_t, T> {} 
     if (!historyAccess[id]) {
+        assert(!hit); // first-time requests must be misses 
       // first time requests are considered as compulsory misses
       ++compulsoryMisses;
       historyAccess[id] = true;
@@ -138,7 +140,11 @@ struct Cache {
     uint32_t evictionsFromThisAccess = 0;
     uint64_t evictedSpaceFromThisAccess = 0;
 
+    #ifndef LHD_LHD
     while (consumedCapacity + requestSize > availableCapacity) {
+        if(hit) {
+            assert(cachedSize<requestSize);
+           }
       // need to evict stuff!
 	// repl::Policy* repl; 
 	//	class Policy {
@@ -155,6 +161,11 @@ struct Cache {
       }
       assert(victimItr != sizeMap.end());
 
+        // A hit object gets replaced (evicted) too but it is legit. 
+        // Reason: The execution gets here when access is hit only because of 
+        // object size change (cachedSize<requestSize). In this case, need to 
+        // evict the smaller cached version (size=cacheSize) and admit the 
+        // larger version (size=requestSize), which is being requested. 
       repl->replaced(victim);
 
       // replacing candidate that just hit; don't free space twice
@@ -172,6 +183,22 @@ struct Cache {
       consumedCapacity -= victimItr->second;
       sizeMap.erase(victimItr);
     }
+    #else
+    // potential consumed capacity after {victims} are evicted 
+    uint64_t consumedCapacity2LHD; 
+
+    // TO_CONTINUE 
+    consumedCapcity2LHD = consumedCapacity; 
+
+    while(consumedCapacity2LHD + requestSize > availableCapacity) {
+        repl::candidate_t victim = repl->rank(req); 
+        auto victimItr = sizeMap.find(victim); 
+        if(victimItr==sizeMap.end()) {
+            std::cerr << "Couldn't find victim in sizeMap: " << victim << std::endl;
+        }
+        assert(victimItr!=sizeMap.end()); 
+    }
+    #endif 
 
     // indicate where first eviction happens
     if (evictionsFromThisAccess > 0) {
