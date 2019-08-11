@@ -113,6 +113,9 @@ class LHD : public virtual Policy {
     std::vector<Class> classes;
 	// stores the index of each candidate_t struct in std::vector<Tag> tags 
     std::unordered_map<candidate_t, uint64_t> indices;
+    // stores the hit density at age 0 when being evicted 
+    // for DSGN20190731-0 
+    std::unordered_map<candidate_t, rank_t> age0HitDensities;
 
     // time is measured in # of requests
     timestamp_t timestamp = 0;

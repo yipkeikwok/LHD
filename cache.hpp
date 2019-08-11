@@ -46,6 +46,9 @@ struct Cache {
 	//	int64_t id is the object ID 
 	// sizeMap stores key-value pairs. Value is size in uint32_t 
   std::unordered_map<repl::candidate_t, uint32_t> sizeMap;
+    #ifdef LHD_LHD
+  repl::CandidateMap<bool> victimSet;
+    #endif 
   repl::CandidateMap<bool> historyAccess;
 
   Cache()
@@ -64,6 +67,9 @@ struct Cache {
     , availableCapacity(-1)
     , consumedCapacity(0)
 	, warmupMisses(0)
+    #ifdef LHD_LHD
+    , victimSet
+    #endif
     , historyAccess(false) {}
 
   uint32_t getSize(repl::candidate_t id) const {
@@ -187,17 +193,32 @@ struct Cache {
     // potential consumed capacity after {victims} are evicted 
     uint64_t consumedCapacity2LHD; 
 
-    // TO_CONTINUE 
     consumedCapcity2LHD = consumedCapacity; 
-
+    victimSet.clear(); 
+    assert(victimSet.size()==(size_t)0);
     while(consumedCapacity2LHD + requestSize > availableCapacity) {
+        if(hit) {
+             assert(cachedSize<requestSize);
+        }
+
         repl::candidate_t victim = repl->rank(req); 
         auto victimItr = sizeMap.find(victim); 
         if(victimItr==sizeMap.end()) {
             std::cerr << "Couldn't find victim in sizeMap: " << victim << std::endl;
         }
         assert(victimItr!=sizeMap.end()); 
+
+        if(victimSet[victim]) {
+            continue;
+        }
+        victimSet[victim]=true;
+        consumedCapacity2LHD-=victimItr->second; 
     }
+    // TO_CONTINUE: handle the case when the victim selected is the requested 
+    //  object 
+    // TO_CONTINUE: handle the following statement from lhd.cpp::rank() 
+    //  ewmaVictimHitDensity = EWMA_DECAY * ewmaVictimHitDensity + (1 - EWMA_DECAY) 
+    //  * victimRank;
     #endif 
 
     // indicate where first eviction happens

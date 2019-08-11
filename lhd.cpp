@@ -112,10 +112,12 @@ candidate_t LHD::rank(const parser::Request& req) {
 
     assert(victim != (uint64_t)-1);
 
+    #ifndef LHD_LHD
 	// lhd.hpp::namespace repl::class LHD::
 	//	rank_t ewmaVictimHitDensity = 0;
 	//	typedef float rank_t;
     ewmaVictimHitDensity = EWMA_DECAY * ewmaVictimHitDensity + (1 - EWMA_DECAY) * victimRank;
+    #endif
 
     return tags[victim].id;
 }
@@ -202,6 +204,9 @@ void LHD::replaced(candidate_t id) {
     auto age = getAge(tag);
     auto& cl = getClass(tag);
     cl.evictions[age] += 1;
+
+    // Record the ago0 hit density for Extendd LHD 
+    age0HitDensities[id] = cl.hitDensities[(rank_t)0]; 
 
     if (tag.explorer) { explorerBudget += tag.size; }
 
