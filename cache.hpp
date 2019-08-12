@@ -1,6 +1,5 @@
 #pragma once
 #define WARMUP
-//#define LHD_LHD
 #include <iostream>
 #include <unordered_map>
 
@@ -68,7 +67,7 @@ struct Cache {
     , consumedCapacity(0)
 	, warmupMisses(0)
     #ifdef LHD_LHD
-    , victimSet
+    , victimSet(false) 
     #endif
     , historyAccess(false) {}
 
@@ -193,7 +192,7 @@ struct Cache {
     // potential consumed capacity after {victims} are evicted 
     uint64_t consumedCapacity2LHD; 
 
-    consumedCapcity2LHD = consumedCapacity; 
+    consumedCapacity2LHD = consumedCapacity; 
     victimSet.clear(); 
     assert(victimSet.size()==(size_t)0);
     while(consumedCapacity2LHD + requestSize > availableCapacity) {
@@ -214,11 +213,32 @@ struct Cache {
         victimSet[victim]=true;
         consumedCapacity2LHD-=victimItr->second; 
     }
+    if(hit && !(cachedSize<requestSize)) {
+        assert(victimSet.size()==0);
+    }
     // TO_CONTINUE: handle the case when the victim selected is the requested 
     //  object 
     // TO_CONTINUE: handle the following statement from lhd.cpp::rank() 
     //  ewmaVictimHitDensity = EWMA_DECAY * ewmaVictimHitDensity + (1 - EWMA_DECAY) 
     //  * victimRank;
+    
+    // CASE: LHD-LHD decides to evict {victimSet} 
+    for(const auto& victim : victimSet) {
+        auto victimItr = sizeMap.find(victim.first);
+        if (victimItr == sizeMap.end()) {
+            std::cerr << "Couldn't find victim: " << victim.first << std::endl;
+        }
+        assert(victimItr != sizeMap.end());
+
+        repl->replaced(victim.first); 
+        if(victim.first == id) {
+            continue;
+        }
+        evictionsFromThisAccess += 1;
+        evictedSpaceFromThisAccess += victimItr->second;
+        consumedCapacity -= victimItr->second;
+        sizeMap.erase(victimItr);
+    }
     #endif 
 
     // indicate where first eviction happens

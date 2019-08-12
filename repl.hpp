@@ -3,6 +3,8 @@
 #include <string>
 #include "candidate.hpp"
 
+#define LHD_LHD
+
 namespace cache {
 
 class Cache;

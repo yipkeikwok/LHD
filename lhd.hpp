@@ -30,6 +30,10 @@ class LHD : public virtual Policy {
 
     void dumpStats(cache::Cache* cache) { }
 
+    #ifdef LHD_LHD
+    bool toEvict(repl::candidate_t rqstd, repl::CandidateMap<bool>& victimSet); 
+    #endif
+
   private:
     // TYPES ///////////////////////////////
     typedef uint64_t timestamp_t;

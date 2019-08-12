@@ -112,12 +112,16 @@ candidate_t LHD::rank(const parser::Request& req) {
 
     assert(victim != (uint64_t)-1);
 
-    #ifndef LHD_LHD
+    // LHD-LHD
+    //  20190812: Later, may consider if necessary to execute this 
+    //  emwaVictimHitDensity statement only after LHD-LHD has decided to evict 
+    //  all victims in {victimSet}. For now, though may slightly affect the answer, 
+    //  should be OK 
+    //
 	// lhd.hpp::namespace repl::class LHD::
 	//	rank_t ewmaVictimHitDensity = 0;
 	//	typedef float rank_t;
     ewmaVictimHitDensity = EWMA_DECAY * ewmaVictimHitDensity + (1 - EWMA_DECAY) * victimRank;
-    #endif
 
     return tags[victim].id;
 }
@@ -427,6 +431,13 @@ void LHD::adaptAgeCoarsening() {
            numObjects,
            optimalAgeCoarsening,
            1. * (1 << ageCoarseningShift));
+}
+
+bool toEvict(repl::candidate_t rqstd, repl::CandidateMap<bool>& victimSet) {
+    // if 1st-time rqst, admit (return true); 
+    //
+    
+    return false;
 }
 
 } // namespace repl
