@@ -154,10 +154,11 @@ void LHD::update(candidate_t id, const parser::Request& req) {
         auto& cl = getClass(*tag);
         cl.hits[age] += 1;
 
-    // <UNANSWERED::20190817a> 
-    // shouldn't the if-statement below also set tag->explorer to false since the 
-    // space occupied by the explorer object has been released? 
-    // </UNANSWERED::20190817a> 
+    // This is not a problme
+    //  object space is released back to explorerBudget, while tag->explore is not 
+    //  reset back to false. Not a problem. 
+    //  Reason why not a problem: tag->explorer is to be decided after this 
+    //  if-else statement. 
         if (tag->explorer) { explorerBudget += tag->size; }
         
         tag->lastLastHitAge = tag->lastHitAge;
