@@ -195,6 +195,7 @@ struct Cache {
     consumedCapacity2LHD = consumedCapacity; 
     victimSet.clear(); 
     assert(victimSet.size()==(size_t)0);
+    uint32_t nrIteration0 = (uint32_t)0; 
     while(consumedCapacity2LHD + requestSize > availableCapacity) {
         if(hit) {
              assert(cachedSize<requestSize);
@@ -207,12 +208,20 @@ struct Cache {
         }
         assert(victimItr!=sizeMap.end()); 
 
+        // WARNING: This may cause an infinite while loop if all cached object have 
+        //  been picked as victims but consumedCapacity2LHD + requestSize is 
+        //  still larger than availableCapacity 
         if(victimSet[victim]) {
             continue;
         }
         victimSet[victim]=true;
-        consumedCapacity2LHD-=victimItr->second; 
+        nrIteration0++; 
+
+        if(victim!=id) {
+            consumedCapacity2LHD-=victimItr->second; 
+        }
     }
+    assert(nrIteration0==victimSet.size()); 
     if(hit && !(cachedSize<requestSize)) {
         assert(victimSet.size()==0);
     }
@@ -223,6 +232,7 @@ struct Cache {
     //  * victimRank;
     
     // CASE: LHD-LHD decides to evict {victimSet} 
+    uint32_t nrIteration1= (uint32_t)0; 
     for(const auto& victim : victimSet) {
         auto victimItr = sizeMap.find(victim.first);
         if (victimItr == sizeMap.end()) {
@@ -231,6 +241,7 @@ struct Cache {
         assert(victimItr != sizeMap.end());
 
         repl->replaced(victim.first); 
+        nrIteration1++; 
         if(victim.first == id) {
             continue;
         }
@@ -239,6 +250,7 @@ struct Cache {
         consumedCapacity -= victimItr->second;
         sizeMap.erase(victimItr);
     }
+    assert(nrIteration0==nrIteration1); 
     #endif 
 
     // indicate where first eviction happens
@@ -269,7 +281,9 @@ struct Cache {
     sizeMap[id] = requestSize;
     consumedCapacity += requestSize;
 
-    assert(consumedCapacity <= availableCapacity);
+    if(consumedCapacity > availableCapacity) {
+        assert(consumedCapacity <= availableCapacity);
+    }
     repl->update(id, req);
   }
 
