@@ -154,6 +154,10 @@ void LHD::update(candidate_t id, const parser::Request& req) {
         auto& cl = getClass(*tag);
         cl.hits[age] += 1;
 
+    // <UNANSWERED::20190817a> 
+    // shouldn't the if-statement below also set tag->explorer to false since the 
+    // space occupied by the explorer object has been released? 
+    // </UNANSWERED::20190817a> 
         if (tag->explorer) { explorerBudget += tag->size; }
         
         tag->lastLastHitAge = tag->lastHitAge;
