@@ -28,6 +28,8 @@ class LHD : public virtual Policy {
     // called to find a victim upon a cache miss
     candidate_t rank(const parser::Request& req);
 
+    size_t getNrCachedObject(); 
+
     void dumpStats(cache::Cache* cache) { }
 
     #ifdef LHD_LHD

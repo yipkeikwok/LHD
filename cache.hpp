@@ -196,6 +196,7 @@ struct Cache {
     victimSet.clear(); 
     assert(victimSet.size()==(size_t)0);
     uint32_t nrIteration0 = (uint32_t)0; 
+    uint32_t alreadyInVictimSetCnt = (uint32_t)0; 
     while(consumedCapacity2LHD + requestSize > availableCapacity) {
         if(hit) {
              assert(cachedSize<requestSize);
@@ -211,7 +212,18 @@ struct Cache {
         // WARNING: This may cause an infinite while loop if all cached object have 
         //  been picked as victims but consumedCapacity2LHD + requestSize is 
         //  still larger than availableCapacity 
+        //  see <UNRESOLVED::20190817a> on Google doc 
         if(victimSet[victim]) {
+            size_t nrVictimSetObject = victimSet.size(); 
+            size_t nrCachedObject = repl->getNrCachedObject(); 
+            std::cout<<"aIVSC= "<<++alreadyInVictimSetCnt;
+            std::cout<<"; nVSO= "<<nrVictimSetObject; 
+            std::cout<<"; nCO= "<<nrCachedObject;
+            std::cout<<"; oID= "<<victim.id; 
+            if(nrVictimSetObject==nrCachedObject) {
+                    std::cout<<"; victimSet.size()==repl->getNrCachedObject()";
+            }
+            std::cout<< "" <<std::endl; 
             continue;
         }
         victimSet[victim]=true;
@@ -220,7 +232,7 @@ struct Cache {
         if(victim!=id) {
             consumedCapacity2LHD-=victimItr->second; 
         }
-    }
+    } // while(consumedCapacity2LHD + requestSize > availableCapacity) {
     assert(nrIteration0==victimSet.size()); 
     if(hit && !(cachedSize<requestSize)) {
         assert(victimSet.size()==0);

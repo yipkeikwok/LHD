@@ -128,6 +128,10 @@ namespace repl {
       delete entry;
     }
 
+    size_t getNrCachedObject() {
+        return tags.size();
+    }
+
     candidate_t rank(const parser::Request& req) {
       return list.back();
     }
