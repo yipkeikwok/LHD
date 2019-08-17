@@ -440,4 +440,8 @@ bool toEvict(repl::candidate_t rqstd, repl::CandidateMap<bool>& victimSet) {
     return false;
 }
 
+size_t LHD::getNrCachedObject() { 
+    return tags.size();
+}
+
 } // namespace repl
