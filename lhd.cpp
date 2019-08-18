@@ -215,7 +215,7 @@ void LHD::replaced(candidate_t id) {
     cl.evictions[age] += 1;
 
     // Record the ago0 hit density for Extendd LHD 
-    age0HitDensities[id] = cl.hitDensities[(rank_t)0]; 
+    age0HitDensities[id] = cl.hitDensities[0]; 
 
     if (tag.explorer) { explorerBudget += tag.size; }
 
