@@ -196,7 +196,9 @@ struct Cache {
     victimSet.clear(); 
     assert(victimSet.size()==(size_t)0);
     uint32_t nrIteration0 = (uint32_t)0; 
+    #ifdef DEBUG_UNRESOLVED20190817a 
     uint32_t alreadyInVictimSetCnt = (uint32_t)0; 
+    #endif
     while(consumedCapacity2LHD + requestSize > availableCapacity) {
         if(hit) {
              assert(cachedSize<requestSize);
@@ -214,6 +216,7 @@ struct Cache {
         //  still larger than availableCapacity 
         //  see <UNRESOLVED::20190817a> on Google doc 
         if(victimSet[victim]) {
+            #ifdef DEBUG_UNRESOLVED20190817a 
             size_t nrVictimSetObject = victimSet.size(); 
             size_t nrCachedObject = repl->getNrCachedObject(); 
             std::cout<<"aIVSC= "<<++alreadyInVictimSetCnt;
@@ -224,6 +227,7 @@ struct Cache {
                     std::cout<<"; victimSet.size()==repl->getNrCachedObject()";
             }
             std::cout<< "" <<std::endl; 
+            #endif
             continue;
         }
         victimSet[victim]=true;
