@@ -438,12 +438,29 @@ void LHD::adaptAgeCoarsening() {
            1. * (1 << ageCoarseningShift));
 }
 
-bool toEvict(repl::candidate_t rqstd, repl::CandidateMap<bool>& victimSet) {
+#ifdef LHD_LHD
+bool LHD::toEvict(repl::candidate_t rqstd, repl::CandidateMap<bool>& victimSet) {
     // if 1st-time rqst, admit (return true); 
-    //
+
+    // Overall hit probability 
+    for(const auto&victimSetItr : victimSet) {
+        auto itr = indices.find(victimSetItr.first);
+        assert(itr != indices.end()); 
+        Tag* tag = &tags[itr->second]; 
+        assert(tag->id == rqstd); 
+        auto& cl = getClass(*tag);
+
+        cl.totalHits += 0.0; 
+
+        rank_t totalEventCount; 
+        totalEventCount+=0;
+    }
+
+    // Calculate expected lifeitme 
     
     return false;
 }
+#endif //LHD_LHD
 
 size_t LHD::getNrCachedObject() { 
     return tags.size();

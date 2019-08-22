@@ -132,6 +132,11 @@ namespace repl {
         return tags.size();
     }
 
+    bool toEvict(repl::candidate_t rqstd, repl::CandidateMap<bool>& victimSet) {
+        std::cerr << "toEvict() in LRU should not be invoked" << std::endl; 
+        std::exit(1);
+    }
+
     candidate_t rank(const parser::Request& req) {
       return list.back();
     }

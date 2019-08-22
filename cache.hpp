@@ -246,6 +246,8 @@ struct Cache {
     // TO_CONTINUE: handle the following statement from lhd.cpp::rank() 
     //  ewmaVictimHitDensity = EWMA_DECAY * ewmaVictimHitDensity + (1 - EWMA_DECAY) 
     //  * victimRank;
+
+    repl->toEvict(id, victimSet);
     
     // CASE: LHD-LHD decides to evict {victimSet} 
     uint32_t nrIteration1= (uint32_t)0; 
