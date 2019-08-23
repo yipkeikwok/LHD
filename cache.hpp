@@ -247,28 +247,31 @@ struct Cache {
     //  ewmaVictimHitDensity = EWMA_DECAY * ewmaVictimHitDensity + (1 - EWMA_DECAY) 
     //  * victimRank;
 
-    repl->toEvict(id, victimSet);
+    bool evictDecision = false; 
+    evictDecision = repl->toEvict(id, victimSet);
     
     // CASE: LHD-LHD decides to evict {victimSet} 
-    uint32_t nrIteration1= (uint32_t)0; 
-    for(const auto& victim : victimSet) {
-        auto victimItr = sizeMap.find(victim.first);
-        if (victimItr == sizeMap.end()) {
-            std::cerr << "Couldn't find victim: " << victim.first << std::endl;
-        }
-        assert(victimItr != sizeMap.end());
+    if(evictDecision) {
+        uint32_t nrIteration1= (uint32_t)0; 
+        for(const auto& victim : victimSet) {
+         auto victimItr = sizeMap.find(victim.first);
+         if (victimItr == sizeMap.end()) {
+             std::cerr << "Couldn't find victim: " << victim.first << std::endl;
+         }
+         assert(victimItr != sizeMap.end());
 
-        repl->replaced(victim.first); 
-        nrIteration1++; 
-        if(victim.first == id) {
-            continue;
+         repl->replaced(victim.first); 
+         nrIteration1++; 
+         if(victim.first == id) {
+             continue;
+         }
+         evictionsFromThisAccess += 1;
+         evictedSpaceFromThisAccess += victimItr->second;
+         consumedCapacity -= victimItr->second;
+            sizeMap.erase(victimItr);
         }
-        evictionsFromThisAccess += 1;
-        evictedSpaceFromThisAccess += victimItr->second;
-        consumedCapacity -= victimItr->second;
-        sizeMap.erase(victimItr);
-    }
-    assert(nrIteration0==nrIteration1); 
+       assert(nrIteration0==nrIteration1); 
+    } // if(evictDecision) {
     #endif 
 
     // indicate where first eviction happens
@@ -277,6 +280,7 @@ struct Cache {
       if (evictions == 0) { std::cout << "x"; }
     }
 
+    #ifndef LHD_LHD
     // measure activity
     evictions += evictionsFromThisAccess;
     cumulativeEvictedSpace += evictedSpaceFromThisAccess;
@@ -292,16 +296,60 @@ struct Cache {
         cumulativeFilledSpace += requestSize;
       } else {
         ++missesTriggeringEvictions;
-      }
+        }
     }
+    #else 
+    // measure activity
+    evictions += evictionsFromThisAccess;
+    cumulativeEvictedSpace += evictedSpaceFromThisAccess;
+    if (hit) {
+      if (requestSize > cachedSize) {
+        if(evictDecision) {
+            cumulativeAllocatedSpace += requestSize - cachedSize;
+        } // if(evictDecision) {
+      }
+    } else {
+        if(evictDecision || (victimSet.size()==0)) {
+           cumulativeAllocatedSpace += requestSize;
+        }
+      if ((evictionsFromThisAccess == 0) && (victimSet.size()==0)) {
+        // misses that don't require evictions are fills by definition
+            ++fills;
+            cumulativeFilledSpace += requestSize;
+      } else if ((evictionsFromThisAccess>0) && (victimSet.size()>0)) {
+        assert(evictDecision==true); 
+        ++missesTriggeringEvictions;
+      } else if ((evictionsFromThisAccess==0) && (victimSet.size()>0)) {
+        assert(evictDecision==false);
+      } else if ((evictionsFromThisAccess>0) && (victimSet.size()==0)) {
+        std::cerr << "(evictionFromThisAccess>0) && (victimSet.size()==0)" << 
+            " should not happend" << std::endl; 
+        assert(0==1);
+      } else if ((evictionsFromThisAccess<0) && (victimSet.size()<0)) {
+        std::cerr << "(evictionFromThisAccess<0) && (victimSet.size()<0)" << 
+            " should not happend" << std::endl; 
+        assert(0==1);
+      } 
+    }
+    #endif // #ifndef LHD_LHD
 
     // insert request
+    #ifndef LHD_LHD 
     sizeMap[id] = requestSize;
     consumedCapacity += requestSize;
 
     if(consumedCapacity > availableCapacity) {
         assert(consumedCapacity <= availableCapacity);
     }
+    #else 
+    // CONTINUE_HERE
+    sizeMap[id] = requestSize;
+    consumedCapacity += requestSize;
+
+    if(consumedCapacity > availableCapacity) {
+        assert(consumedCapacity <= availableCapacity);
+    }
+    #endif //#ifndef LHD_LHD
     repl->update(id, req);
   }
 

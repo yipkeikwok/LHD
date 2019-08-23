@@ -443,18 +443,60 @@ bool LHD::toEvict(repl::candidate_t rqstd, repl::CandidateMap<bool>& victimSet) 
     // if 1st-time rqst, admit (return true); 
 
     // Overall hit probability 
+    rank_t overallHitProbability = (rank_t)0; 
+    // overallDenominator is 
+    //  for {victimSet}
+    //      sum of (size * objectExpectedLifetime) 
+    rank_t overallDenominator = (rank_t)0; 
     for(const auto&victimSetItr : victimSet) {
         auto itr = indices.find(victimSetItr.first);
         assert(itr != indices.end()); 
         Tag* tag = &tags[itr->second]; 
         assert(tag->id == rqstd); 
         auto& cl = getClass(*tag);
+        auto age = getAge(*tag); 
 
-        cl.totalHits += 0.0; 
+        // calculate total hit count
+        rank_t totalHitCount = (rank_t)0; 
+        rank_t totalEventCount = (rank_t)0; 
+        for(age_t iter0 = age; iter0 < MAX_AGE; iter0++) {
+            totalHitCount += cl.hits[iter0]; 
 
-        rank_t totalEventCount; 
-        totalEventCount+=0;
+            totalEventCount += cl.hits[iter0]; 
+            totalEventCount += cl.evictions[iter0]; 
+        }
+        overallHitProbability += totalHitCount/totalEventCount; 
+
+        // calculate overall (sum of) expected lifetime 
+        rank_t objectExpectedLifetime = (rank_t)0;
+        age_t j = (age_t)0; 
+        for(age_t iter0 = (age+j); (age+j)<MAX_AGE; j++) {
+            rank_t tmp; 
+            tmp = (cl.hits[iter0] + cl.evictions[iter0]); 
+            tmp /= totalEventCount; 
+            tmp *= (j+1); 
+            objectExpectedLifetime += tmp; 
+        }
+        overallDenominator += tag->size * objectExpectedLifetime; 
     }
+
+    rank_t overallHitDensity = (rank_t)0;
+    overallHitDensity = overallHitProbability; 
+    overallHitDensity /= overallDenominator; 
+
+    #if 0
+    // caculate overall sum of expected lifetime 
+    for(const auto& victimSetItr : victimSet) {
+        auto itr = indices.find(victimSetItr.first);
+        assert(itr != indices.end()); 
+        Tag* tag = &tags[itr->second]; 
+        assert(tag->id == rqstd); 
+        auto& cl = getClass(*tag);
+        auto age = getAge(*tag); 
+
+        
+    }
+    #endif
 
     // Calculate expected lifeitme 
     
