@@ -67,6 +67,8 @@ class LHD : public virtual Policy {
         rank_t totalHits = 0;
         rank_t totalEvictions = 0;
 
+        // vector hitDensities has not taken object size into account 
+        // i.e., real HitDensity = hitDensities/(object size)
         std::vector<rank_t> hitDensities;
     };
 
