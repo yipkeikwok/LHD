@@ -439,7 +439,8 @@ void LHD::adaptAgeCoarsening() {
 }
 
 #ifdef LHD_LHD
-bool LHD::toEvict(repl::candidate_t rqstd, repl::CandidateMap<bool>& victimSet) {
+bool LHD::toEvict(repl::candidate_t rqstd, uint32_t requestSize, 
+    repl::CandidateMap<bool>& victimSet) {
     // if 1st-time rqst, admit (return true); 
 
     // Overall hit probability 
@@ -448,11 +449,16 @@ bool LHD::toEvict(repl::candidate_t rqstd, repl::CandidateMap<bool>& victimSet) 
     //  for {victimSet}
     //      sum of (size * objectExpectedLifetime) 
     rank_t overallDenominator = (rank_t)0; 
+
     for(const auto&victimSetItr : victimSet) {
         auto itr = indices.find(victimSetItr.first);
         assert(itr != indices.end()); 
         Tag* tag = &tags[itr->second]; 
-        assert(tag->id == rqstd); 
+        /** 
+ *      The following line should not be there because the requested object can 
+ *      be a victim candidate if (cachedSize < requestSize) 
+ *      */
+        // assert(tag->id != rqstd); 
         auto& cl = getClass(*tag);
         auto age = getAge(*tag); 
 
@@ -483,6 +489,8 @@ bool LHD::toEvict(repl::candidate_t rqstd, repl::CandidateMap<bool>& victimSet) 
     rank_t overallHitDensity = (rank_t)0;
     overallHitDensity = overallHitProbability; 
     overallHitDensity /= overallDenominator; 
+
+    return (overallHitDensity < requestSize*age0HitDensities[rqstd]); 
 
     #if 0
     // caculate overall sum of expected lifetime 

@@ -100,6 +100,7 @@ struct Cache {
 	// struct Cache { std::unordered_map<repl::candidate_t, uint32_t> sizeMap; }
     auto itr = sizeMap.find(id);
     bool hit = (itr != sizeMap.end());
+    bool firstTimeAccessToObject = false; 
 
 	// struct Cache{repl::CandidateMap<bool> historyAccess; } 
 	//	In candidate.hpp, ...
@@ -109,6 +110,7 @@ struct Cache {
       // first time requests are considered as compulsory misses
       ++compulsoryMisses;
       historyAccess[id] = true;
+        firstTimeAccessToObject = true; 
     }
 
     if (hit) { ++hits; } else { 
@@ -248,10 +250,12 @@ struct Cache {
     //  * victimRank;
 
     bool evictDecision = false; 
-    evictDecision = repl->toEvict(id, victimSet);
-    
+    assert(!evictDecision); 
+    if((victimSet.size() > 0) && !firstTimeAccessToObject) {
+        evictDecision = repl->toEvict(id, requestSize, victimSet);
+    }
     // CASE: LHD-LHD decides to evict {victimSet} 
-    if(evictDecision) {
+    if(evictDecision || firstTimeAccessToObject) {
         uint32_t nrIteration1= (uint32_t)0; 
         for(const auto& victim : victimSet) {
          auto victimItr = sizeMap.find(victim.first);
@@ -303,17 +307,25 @@ struct Cache {
     evictions += evictionsFromThisAccess;
     cumulativeEvictedSpace += evictedSpaceFromThisAccess;
     if (hit) {
+        assert(!firstTimeAccessToObject); 
       if (requestSize > cachedSize) {
         if(evictDecision) {
             cumulativeAllocatedSpace += requestSize - cachedSize;
         } // if(evictDecision) {
       }
     } else {
+        // MISS
         // if (victimSet.size()==0), admitting the requested object does not 
         // require evicting any cached objects 
-        if(evictDecision || (victimSet.size()==0)) {
+        // CONTINUE_HERE::20190825
+        if(evictDecision ) {
+            assert(evictionsFromThisAccess > 0); 
            cumulativeAllocatedSpace += requestSize;
         }
+        if(firstTimeAccessToObject) {
+           cumulativeAllocatedSpace += requestSize;
+        }
+    
       if ((evictionsFromThisAccess == 0) && (victimSet.size()==0)) {
         // misses that don't require evictions are fills by definition
             ++fills;
@@ -339,18 +351,47 @@ struct Cache {
     sizeMap[id] = requestSize;
     consumedCapacity += requestSize;
 
-    if(consumedCapacity > availableCapacity) {
-        assert(consumedCapacity <= availableCapacity);
-    }
     #else 
-    // CONTINUE_HERE
-    sizeMap[id] = requestSize;
-    consumedCapacity += requestSize;
-
-    if(consumedCapacity > availableCapacity) {
-        assert(consumedCapacity <= availableCapacity);
+    if(hit) {
+        if(cachedSize<requestSize) {
+            if(evictDecision && (victimSet.size()>0)) {
+                assert(evictionsFromThisAccess>0); 
+                sizeMap[id] = requestSize; 
+                consumedCapacity += requestSize; 
+            } else {
+                assert(evictionsFromThisAccess==0); 
+                consumedCapacity += cachedSize; 
+            }
+        } else {
+            // cachedSize>=requestSize 
+            assert(evictionsFromThisAccess==0); 
+            sizeMap[id] = requestSize; 
+            consumedCapacity += requestSize; 
+        }
+    } else {
+        // MISS
+        if(evictDecision || (victimSet.size()==0)) {
+            // CASE: admit 
+            if(!(evictDecision && (victimSet.size()==0))) {
+                assert(firstTimeAccessToObject);
+            }
+            if(evictDecision) {
+                if(!evictDecision) {
+                    assert(evictionsFromThisAccess>0);
+                }
+            } else {
+                assert(victimSet.size()>0);
+            }
+            sizeMap[id] = requestSize;
+            consumedCapacity += requestSize; 
+        } else {
+            // CASE: not admit 
+        }
     }
     #endif //#ifndef LHD_LHD
+    if(consumedCapacity > availableCapacity) {
+        assert(consumedCapacity <= availableCapacity);
+    }
     repl->update(id, req);
   }
 

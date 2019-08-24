@@ -34,8 +34,8 @@ public:
   static Policy* create(cache::Cache* cache, const libconfig::Setting &settings);
 
     #ifdef LHD_LHD
-    virtual bool toEvict(repl::candidate_t rqstd, repl::CandidateMap<bool>& 
-        victimSet) = 0;
+    virtual bool toEvict(repl::candidate_t rqstd, uint32_t requestSize, 
+        repl::CandidateMap<bool>& victimSet) = 0;
     #endif
 };
 
