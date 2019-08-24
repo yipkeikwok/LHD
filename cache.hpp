@@ -309,6 +309,8 @@ struct Cache {
         } // if(evictDecision) {
       }
     } else {
+        // if (victimSet.size()==0), admitting the requested object does not 
+        // require evicting any cached objects 
         if(evictDecision || (victimSet.size()==0)) {
            cumulativeAllocatedSpace += requestSize;
         }
@@ -325,9 +327,8 @@ struct Cache {
         std::cerr << "(evictionFromThisAccess>0) && (victimSet.size()==0)" << 
             " should not happend" << std::endl; 
         assert(0==1);
-      } else if ((evictionsFromThisAccess<0) && (victimSet.size()<0)) {
-        std::cerr << "(evictionFromThisAccess<0) && (victimSet.size()<0)" << 
-            " should not happend" << std::endl; 
+      } else {
+        std::cerr << " should not happend" << std::endl; 
         assert(0==1);
       } 
     }
