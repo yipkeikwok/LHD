@@ -237,6 +237,8 @@ struct Cache {
 
         if(victim!=id) {
             consumedCapacity2LHD-=victimItr->second; 
+        } else {
+            assert(hit);
         }
     } // while(consumedCapacity2LHD + requestSize > availableCapacity) {
     assert(nrIteration0==victimSet.size()); 
@@ -273,7 +275,7 @@ struct Cache {
          evictedSpaceFromThisAccess += victimItr->second;
          consumedCapacity -= victimItr->second;
             sizeMap.erase(victimItr);
-        }
+        } // for(const auto& victim : victimSet) {
        assert(nrIteration0==nrIteration1); 
     } // if(evictDecision) {
     #endif 
@@ -303,13 +305,20 @@ struct Cache {
         }
     }
     #else 
+    if(evictDecision && evictionsFromThisAccess==0) {
+        std::cerr << "If evictDecision is true, victims must be evicted" 
+            << std::endl; 
+    }
+    assert(!(evictDecision && evictionsFromThisAccess==0)); 
     // measure activity
     evictions += evictionsFromThisAccess;
     cumulativeEvictedSpace += evictedSpaceFromThisAccess;
     if (hit) {
         assert(!firstTimeAccessToObject); 
       if (requestSize > cachedSize) {
-        if(evictDecision) {
+        if(evictDecision || (victimSet.size()==0)) {
+            // if victimSet.size()==0, no eviction is necessary to accommodate 
+            // the increased size of the requested object
             cumulativeAllocatedSpace += requestSize - cachedSize;
         } // if(evictDecision) {
       }
@@ -317,7 +326,13 @@ struct Cache {
         // MISS
         // if (victimSet.size()==0), admitting the requested object does not 
         // require evicting any cached objects 
-        // CONTINUE_HERE::20190825
+        if(firstTimeAccessToObject) {
+           assert(!evictDecision); 
+           cumulativeAllocatedSpace += requestSize;
+        } else {
+            assert(!firstTimeAccessToObject); 
+            // CONTINUE_HERE               
+        }
         if(evictDecision ) {
             assert(evictionsFromThisAccess > 0); 
            cumulativeAllocatedSpace += requestSize;

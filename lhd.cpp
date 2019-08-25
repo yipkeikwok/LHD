@@ -441,7 +441,9 @@ void LHD::adaptAgeCoarsening() {
 #ifdef LHD_LHD
 bool LHD::toEvict(repl::candidate_t rqstd, uint32_t requestSize, 
     repl::CandidateMap<bool>& victimSet) {
-    // if 1st-time rqst, admit (return true); 
+    // toEvict() is called only when necessary. i.e. 
+    //      there is at least 1 victim  to be considered for eviction 
+    assert(victimSet.size()>0); 
 
     // Overall hit probability 
     rank_t overallHitProbability = (rank_t)0; 
