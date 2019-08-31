@@ -266,6 +266,7 @@ struct Cache {
          }
          assert(victimItr != sizeMap.end());
 
+         assert(victim.second==true); 
          repl->replaced(victim.first); 
          nrIteration1++; 
          if(victim.first == id) {
@@ -327,25 +328,30 @@ struct Cache {
         // if (victimSet.size()==0), admitting the requested object does not 
         // require evicting any cached objects 
         if(firstTimeAccessToObject) {
-           assert(!evictDecision); 
-           cumulativeAllocatedSpace += requestSize;
-        } else {
+            // MISS and admit requested object
+            assert(!hit); 
+            assert(!evictDecision); 
+            cumulativeAllocatedSpace += requestSize;
+        } else if (evictDecision) {
+            // MISS and admit requested object
+            assert(!hit); 
             assert(!firstTimeAccessToObject); 
-            // CONTINUE_HERE               
-        }
-        if(evictDecision ) {
-            assert(evictionsFromThisAccess > 0); 
-           cumulativeAllocatedSpace += requestSize;
-        }
-        if(firstTimeAccessToObject) {
-           cumulativeAllocatedSpace += requestSize;
-        }
+            assert(victimSet.size() > 0); 
+            assert(evictionsFromThisAccess == victimSet.size()); 
+            cumulativeAllocatedSpace += requestSize; 
+        } else { 
+            // MISS but not bring in requested object 
+            assert(!hit); 
+            assert(evictionsFromThisAccess==0); 
+        } 
     
       if ((evictionsFromThisAccess == 0) && (victimSet.size()==0)) {
         // misses that don't require evictions are fills by definition
+            assert(!evictDecision); 
             ++fills;
             cumulativeFilledSpace += requestSize;
       } else if ((evictionsFromThisAccess>0) && (victimSet.size()>0)) {
+            // CONTINUE_HERE 
         assert(evictDecision==true); 
         ++missesTriggeringEvictions;
       } else if ((evictionsFromThisAccess==0) && (victimSet.size()>0)) {
@@ -358,7 +364,7 @@ struct Cache {
         std::cerr << " should not happend" << std::endl; 
         assert(0==1);
       } 
-    }
+    } // } else {
     #endif // #ifndef LHD_LHD
 
     // insert request
