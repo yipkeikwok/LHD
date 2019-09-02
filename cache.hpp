@@ -317,9 +317,13 @@ struct Cache {
     if (hit) {
         assert(!firstTimeAccessToObject); 
       if (requestSize > cachedSize) {
-        if(evictDecision || (victimSet.size()==0)) {
+        if((victimSet.size()==0) || ((victimSet.size()>0)&&(evictDecision))) {
             // if victimSet.size()==0, no eviction is necessary to accommodate 
             // the increased size of the requested object
+            //
+            if((victimSet.size()>0)&&(evictDecision)) {
+                assert(evictionsFromThisAccess>0);
+            }
             cumulativeAllocatedSpace += requestSize - cachedSize;
         } // if(evictDecision) {
       }
@@ -327,42 +331,51 @@ struct Cache {
         // MISS
         // if (victimSet.size()==0), admitting the requested object does not 
         // require evicting any cached objects 
+        assert(!hit); 
         if(firstTimeAccessToObject) {
             // MISS and admit requested object
-            assert(!hit); 
             assert(!evictDecision); 
             cumulativeAllocatedSpace += requestSize;
-        } else if (evictDecision) {
+        } else if (victimSet.size()==0) {
             // MISS and admit requested object
-            assert(!hit); 
+            // no eviction required 
             assert(!firstTimeAccessToObject); 
-            assert(victimSet.size() > 0); 
-            assert(evictionsFromThisAccess == victimSet.size()); 
+            assert(evictionsFromThisAccess == 0);
+            assert((consumedCapacity+requestSize) <= availableCapacity); 
+            cumulativeAllocatedSpace += requestSize; 
+        } else if ((victimSet.size()>0) && (evictDecision)) {
+            // MISS and admit requested object
+            // eviction required 
+            assert(!firstTimeAccessToObject);
+            assert(evictionsFromThisAccess==(uint32_t)(victimSet.size()));
             cumulativeAllocatedSpace += requestSize; 
         } else { 
-            // MISS but not bring in requested object 
-            assert(!hit); 
+            // MISS::NOT ADMIT
             assert(evictionsFromThisAccess==0); 
+            assert(
+                !firstTimeAccessToObject && 
+                (victimSet.size()>0 && !evictDecision)
+            );
         } 
     
-      if ((evictionsFromThisAccess == 0) && (victimSet.size()==0)) {
+      if (evictionsFromThisAccess == 0) { 
         // misses that don't require evictions are fills by definition
-            assert(!evictDecision); 
-            ++fills;
-            cumulativeFilledSpace += requestSize;
-      } else if ((evictionsFromThisAccess>0) && (victimSet.size()>0)) {
-            // CONTINUE_HERE 
-        assert(evictDecision==true); 
-        ++missesTriggeringEvictions;
-      } else if ((evictionsFromThisAccess==0) && (victimSet.size()>0)) {
-        assert(evictDecision==false);
-      } else if ((evictionsFromThisAccess>0) && (victimSet.size()==0)) {
-        std::cerr << "(evictionFromThisAccess>0) && (victimSet.size()==0)" << 
-            " should not happend" << std::endl; 
-        assert(0==1);
+            if(firstTimeAccessToObject) { 
+                ++fills; 
+                cumulativeFilledSpace += requestSize;
+            } else if(victimSet.size()==0) { 
+                assert(!firstTimeAccessToObject); 
+                assert((consumedCapacity+requestSize) <= availableCapacity);
+                ++fills;
+                cumulativeFilledSpace += requestSize;
+            } else { 
+                assert(!firstTimeAccessToObject); 
+                assert(victimSet.size()>0); 
+                assert(!evictDecision); 
+            }
       } else {
-        std::cerr << " should not happend" << std::endl; 
-        assert(0==1);
+            assert(evictionsFromThisAccess > 0); 
+            ++missesTriggeringEvictions; 
       } 
     } // } else {
     #endif // #ifndef LHD_LHD
@@ -375,22 +388,48 @@ struct Cache {
     #else 
     if(hit) {
         if(cachedSize<requestSize) {
+            #if 0
             if(evictDecision && (victimSet.size()>0)) {
                 assert(evictionsFromThisAccess>0); 
                 sizeMap[id] = requestSize; 
                 consumedCapacity += requestSize; 
             } else {
+                assert(!evictDecision); 
+                assert(victimSet.size()==0); 
                 assert(evictionsFromThisAccess==0); 
                 consumedCapacity += cachedSize; 
             }
+            #endif
+            if(victimSet.size()==0) {
+                assert(evictionsFromThisAccess==0); 
+                sizeMap[id] = requestSize; 
+                consumedCapacity += requestSize; 
+            } else { 
+                assert(victimSet.size()>0); 
+                if(evictDecision) {
+                    assert(evictionsFromThisAccess>0); 
+                    sizeMap[id] = requestSize; 
+                    consumedCapacity += requestSize; 
+                } else {
+                    // decide to not evict victimSet 
+                    assert(!evictDecision); 
+                    assert(evictionsFromThisAccess==0); 
+                    // sizeMap[id] should remain unchange 
+                    assert(sizeMap[id]==cachedSize); 
+                    consumedCapacity += cachedSize; 
+                }
+            }
         } else {
             // cachedSize>=requestSize 
+            assert(!evictDecision); 
+            assert(victimSet.size()==0); 
             assert(evictionsFromThisAccess==0); 
             sizeMap[id] = requestSize; 
             consumedCapacity += requestSize; 
         }
     } else {
         // MISS
+        #if 0
         if(evictDecision || (victimSet.size()==0)) {
             // CASE: admit 
             if(!(evictDecision && (victimSet.size()==0))) {
@@ -407,6 +446,30 @@ struct Cache {
             consumedCapacity += requestSize; 
         } else {
             // CASE: not admit 
+        }
+        #endif
+        if(firstTimeAccessToObject) {
+            // MISS::ADMIT
+            sizeMap[id] = requestSize; 
+            consumedCapacity += requestSize; 
+        } else if(victimSet.size()==0) {
+            // MISS::ADMIT
+            assert(!firstTimeAccessToObject); 
+            assert((consumedCapacity+requestSize)<=availableCapacity);
+            sizeMap[id] = requestSize; 
+            consumedCapacity += requestSize; 
+        } else if ((victimSet.size()>0) && (evictDecision)){
+            // MISS::ADMIT
+            assert(!firstTimeAccessToObject);
+            assert(evictionsFromThisAccess==(uint32_t)(victimSet.size()));
+            sizeMap[id] = requestSize; 
+            consumedCapacity += requestSize; 
+        } else {
+            // MISS::NOT ADMIT
+            assert( 
+                !firstTimeAccessToObject && 
+                (victimSet.size()>0 && !evictDecision)
+            );
         }
     }
     #endif //#ifndef LHD_LHD
