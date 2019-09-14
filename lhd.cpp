@@ -128,6 +128,10 @@ candidate_t LHD::rank(const parser::Request& req) {
 
 // called by namespace cache::class Cache::access() 
 void LHD::update(candidate_t id, const parser::Request& req) {
+       update(id, req, req.size());
+}
+
+void LHD::update(candidate_t id, const parser::Request& req, int64_t size) {
     auto itr = indices.find(id);
     bool insert = (itr == indices.end());
         

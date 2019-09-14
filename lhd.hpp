@@ -22,6 +22,9 @@ class LHD : public virtual Policy {
     // called whenever and object is referenced
     void update(candidate_t id, const parser::Request& req);
 
+    // called whenever and object is referenced
+    void update(candidate_t id, const parser::Request& req, int64_t size);
+
     // called when an object is evicted
     void replaced(candidate_t id);
 

@@ -122,6 +122,10 @@ namespace repl {
       list.insert_front(entry);
     }
 
+    void update(candidate_t id, const parser::Request& req, int64_t size) {
+        update(id, req);
+    }
+
     void replaced(candidate_t id) {
       auto* entry = tags.evict(id);
       entry->remove();

@@ -25,6 +25,7 @@ public:
   virtual ~Policy() {}
 
   virtual void update(candidate_t id, const parser::Request& req) = 0;
+  virtual void update(candidate_t id, const parser::Request& req, int64_t size) = 0;
   virtual void replaced(candidate_t id) = 0;
   virtual candidate_t rank(const parser::Request& req) = 0;
     virtual size_t getNrCachedObject() = 0;
