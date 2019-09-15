@@ -476,7 +476,95 @@ struct Cache {
     if(consumedCapacity > availableCapacity) {
         assert(consumedCapacity <= availableCapacity);
     }
+
+    #ifndef LHD_LHD 
     repl->update(id, req);
+    #else 
+    assert(requestSize==req.size()); 
+    if(hit) {
+        if(cachedSize<requestSize) {
+            // <hit::cachedSize<requestSize>
+            if(victimSet.size()>0) {
+                // eviction required 
+                if(evictDecision) {
+                    // assertion 
+                    assert(victimSet.size()==evictionsFromThisAccess);
+
+                    repl->update(id, req, req.size()); 
+                } else {
+                    // condition 
+                    assert(!evictDecision);
+                    // assertion 
+                    assert(evictionsFromThisAccess==0); 
+
+                    repl->update(id, req, cachedSize); 
+                }
+            } else { 
+                // eviction not required 
+                // condition 
+                assert(victimSet.size()==0); 
+                // assertion 
+                assert(!evictDecision); 
+                assert(evictionsFromThisAccess==0); 
+
+                repl->update(id, req, req.size()); 
+            }
+            // </hit::cachedSize<requestSize>
+        } else {
+            // condition 
+            assert(cachedSize>=requestSize); 
+            // assertion 
+            assert(!evictDecision); 
+            assert(victimSet.size()==0); 
+            assert(evictionsFromThisAccess==0); 
+
+            repl->update(id, req, req.size()); 
+        }
+    } else {
+        assert(!hit);
+        // <miss>
+        if(victimSet.size()>0) {
+            // <miss::eviction required>
+            if(evictDecision) {
+                // assert
+                assert(evictionsFromThisAccess>0); 
+                assert(evictionsFromThisAccess==victimSet.size()); 
+
+                repl->update(id, req); 
+            } else {
+                // condition
+                assert(!evictDecision);
+                if(firstTimeAccessToObject) {
+                    //assert 
+                    assert(evictionsFromThisAccess>0); 
+                    assert(evictionsFromThisAccess==victimSet.size()); 
+
+                    repl->update(id, req);
+                } else {
+                    // condition
+                    assert(!firstTimeAccessToObject); 
+                    // assert 
+                    assert(evictionsFromThisAccess==0); 
+
+                    // no call to
+                    // repl->update(id, req); 
+                }
+            }
+            // </miss::eviction required>
+        } else {
+            // <miss::eviction not required>
+            // condition
+            assert(victimSet.size()==0);
+            // assert
+            assert(!evictDecision); 
+            assert(evictionsFromThisAccess==0);
+
+            repl->update(id, req); 
+            // </miss::eviction not required>
+        }
+        // </miss>
+    }
+    #endif 
   }
 
   void dumpStats() {
