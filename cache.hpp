@@ -257,6 +257,8 @@ struct Cache {
         evictDecision = repl->toEvict(id, requestSize, victimSet);
     }
     // CASE: LHD-LHD decides to evict {victimSet} 
+    bool rqstdObjctInVictimSet = false; 
+    assert(!rqstdObjctInVictimSet); 
     if(evictDecision || firstTimeAccessToObject) {
         uint32_t nrIteration1= (uint32_t)0; 
         for(const auto& victim : victimSet) {
@@ -270,6 +272,7 @@ struct Cache {
          repl->replaced(victim.first); 
          nrIteration1++; 
          if(victim.first == id) {
+            rqstdObjctInVictimSet=true; 
              continue;
          }
          evictionsFromThisAccess += 1;
@@ -488,8 +491,17 @@ struct Cache {
                 // eviction required 
                 if(evictDecision) {
                     // assertion 
-                    assert(victimSet.size()==evictionsFromThisAccess);
-
+                    if(victimSet.size()!=evictionsFromThisAccess) { 
+                        if(victimSet.size()==(evictionsFromThisAccess+1)) {
+                            assert(rqstdObjctInVictimSet==true);
+                        } else {
+                            std::cerr<<"victimSet.size()= "<< victimSet.size()
+                                <<std::endl;
+                            std::cerr<<"evictionsFromThisAccess= " <<
+                                evictionsFromThisAccess<<std::endl;
+                            assert(victimSet.size()==evictionsFromThisAccess);
+                        }
+                    }
                     repl->update(id, req, req.size()); 
                 } else {
                     // condition 
