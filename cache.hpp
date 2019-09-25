@@ -100,7 +100,9 @@ struct Cache {
 	// struct Cache { std::unordered_map<repl::candidate_t, uint32_t> sizeMap; }
     auto itr = sizeMap.find(id);
     bool hit = (itr != sizeMap.end());
+    #ifdef LHD_LHD
     bool firstTimeAccessToObject = false; 
+    #endif
 
 	// struct Cache{repl::CandidateMap<bool> historyAccess; } 
 	//	In candidate.hpp, ...
@@ -110,7 +112,9 @@ struct Cache {
       // first time requests are considered as compulsory misses
       ++compulsoryMisses;
       historyAccess[id] = true;
+        #ifdef LHD_LHD
         firstTimeAccessToObject = true; 
+        #endif
     }
 
     if (hit) { ++hits; } else { 
