@@ -31,7 +31,7 @@ enum {
   OTHER
 };
 
-static const int64_t MAX_REQUEST_SIZE = 1024 * 1024;
+static const int64_t MAX_REQUEST_SIZE = INT64_MAX; 
 static const int64_t MEMCACHED_OVERHEAD = 56 + 8 + 8 + 2;
 
 struct Request {
