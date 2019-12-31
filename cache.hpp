@@ -38,6 +38,8 @@ struct Cache {
   uint64_t availableCapacity;
 	// size of objects stored in the cache 
   uint64_t consumedCapacity;
+    // no. of warm-up accesses 
+    uint64_t warmupAccesses; 
 	// no. of misses during warm-up 
 	uint64_t warmupMisses; 
 	// candidate_t{int appId; int64_t id;} 
@@ -104,7 +106,7 @@ struct Cache {
     }
 
     if (hit) { ++hits; } else { 
-	    if(accesses < WARMUP_ACCESSES) {
+	    if(accesses < warmupAccesses) {
 		    warmupMisses++;
 	    }
 	    ++misses; 
@@ -205,7 +207,7 @@ struct Cache {
       << "Accesses: " << accesses
       << "\t(" << misc::bytes(cumulativeAllocatedSpace) << ")" << endl
       << "Hits: " << hits << " " << (100. * hits / accesses) << "%" << endl
-      << "Misses: " << (misses-warmupMisses) << " " << (100. * (misses-warmupMisses) / (accesses-WARMUP_ACCESSES)) << "%" << endl
+      << "Misses: " << (misses-warmupMisses) << " " << (100. * (misses-warmupMisses) / (accesses-warmupAccesses)) << "%" << endl
       << "Compulsory misses: " << compulsoryMisses << " " << (100. * compulsoryMisses / accesses) << "%" << endl
       << "Non-compulsory hit rate: " << (100. * hits / (accesses - compulsoryMisses)) << "%" << endl
       << "  > Fills: " << fills << " " << (100. * fills / accesses) << "%"
@@ -214,6 +216,8 @@ struct Cache {
       << "  > Evictions: " << evictions << " " << (100. * evictions / accesses) << "%"
       << "\t(" << misc::bytes(cumulativeEvictedSpace) << ")" << endl
       << "  > Accesses triggering evictions: " << accessesTriggeringEvictions << " (" << (1. * evictions / accessesTriggeringEvictions) << " evictions per trigger)" << endl
+        << "  > Warmup misses: " << warmupMisses << endl 
+        << "  > Warmup accesses: " << warmupAccesses << endl 
       ;
   }
 

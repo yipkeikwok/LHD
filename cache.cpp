@@ -13,7 +13,9 @@ using namespace parser;
 
 cache::Cache* _cache;
 
+const int64_t DEFAULT_WARMUP_ACCESSES = 128 * 1000 * 1000;
 const int64_t DEFAULT_TOTAL_ACCESSES = 512 * 1024 * 1024;
+uint64_t WARMUP_ACCESSES = DEFAULT_WARMUP_ACCESSES;
 uint64_t TOTAL_ACCESSES = DEFAULT_TOTAL_ACCESSES;
 
 int32_t filterApp = -1;
@@ -56,10 +58,12 @@ int main(int argc, char* argv[]) {
 
   int capacity = cfg.read<int>("cache.capacity");
   TOTAL_ACCESSES = cfg.read<int>("trace.totalAccesses", DEFAULT_TOTAL_ACCESSES);
+  WARMUP_ACCESSES = cfg.read<int>("trace.warmupAccesses", DEFAULT_WARMUP_ACCESSES);
   _cache = new cache::Cache();
   _cache->availableCapacity = (uint64_t)capacity * 1024 * 1024;
   _cache->repl = repl::Policy::create(_cache, root);
   std::cout << "Cache Capacity: " << capacity << "MB" << std::endl;
+    _cache->warmupAccesses = WARMUP_ACCESSES; 
 
   std::string trace;
   if (root.exists("trace.file")) {
