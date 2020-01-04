@@ -2,6 +2,7 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <limits>
 #include <stdint.h>
 #include <cassert>
 #include <sys/types.h>
@@ -31,7 +32,7 @@ enum {
   OTHER
 };
 
-static const int64_t MAX_REQUEST_SIZE = 1024 * 1024;
+static const int64_t MAX_REQUEST_SIZE = std::numeric_limits<int64_t>::max();
 static const int64_t MEMCACHED_OVERHEAD = 56 + 8 + 8 + 2;
 
 struct Request {
